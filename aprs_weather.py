@@ -16,24 +16,6 @@ logging.basicConfig(filename='aprs.log', level=logging.INFO, format='%(asctime)s
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
-Callsign = 'callsigbin/python3
-
-import os
-import json
-import urllib.request
-from datetime import datetime, timezone
-import socket
-import sys
-from time import sleep
-import ssl
-import gzip
-import logging
-
-# 配置日志记录
-logging.basicConfig(filename='aprs.log', level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
-
-ssl._create_default_https_context = ssl._create_unverified_context
-
 Callsign = 'CallSign'    #CallSign+SSID
 Passcode = 'xxxxx'       #aprs passcode
 Server = 'asia.aprs2.net:14580'  # 调整服务器地址
