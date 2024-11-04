@@ -9,13 +9,10 @@ import sys
 from time import sleep
 import ssl
 import gzip
-import logging
-
-# 配置日志记录
-logging.basicConfig(filename='aprs.log', level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
+# 配置参数
 Callsign = 'CallSign'    #CallSign+SSID
 Passcode = 'xxxxx'       #aprs passcode
 Server = 'asia.aprs2.net:14580'  # 调整服务器地址
@@ -24,6 +21,7 @@ City = '101110110'      # 替换为和风天气的城市代码
 Key = 'xxxxxxxxxxx'     # 替换为和风天气的api key
 Lat = '34.0000'         # 替换为城市的纬度
 Lng = '108.0000'        # 替换为城市的经度
+RefreshInterval = 300  # 刷新发送间隔，单位为秒（5分钟）
 
 def send_aprsframe(aprs_frame):
     sended = False
@@ -32,18 +30,18 @@ def send_aprsframe(aprs_frame):
         try:
             Aprs_Sock.connect((Server.split(':')[0], int(Server.split(':')[1])))
             login_message = f'user {Callsign} pass {Passcode}\n'
-            logging.info(f"Sending login message: {login_message.strip()}")
+            print(f"Sending login message: {login_message.strip()}")
             Aprs_Sock.send(login_message.encode())
             sReturn = Aprs_Sock.recv(4096).decode()
             if sReturn.startswith("#"):
-                logging.info(f"Succesfully logged to APRS-IS! {sReturn.strip()}")
-                logging.info(f"Sending APRS frame: {aprs_frame.decode()}")
+                print(f"Succesfully logged to APRS-IS! {sReturn.strip()}")
+                print(f"Sending APRS frame: {aprs_frame.decode()}")
                 Aprs_Sock.send(f'{aprs_frame.decode()}\n'.encode())
                 sended = True
             else:
-                logging.error(f"Failed to log in to APRS-IS: {sReturn.strip()}")
+                print(f"Failed to log in to APRS-IS: {sReturn.strip()}")
         except Exception as e:
-            logging.error(f"Connection error: {e}")
+            print(f"Connection error: {e}")
         finally:
             sleep(1)
     Aprs_Sock.shutdown(0)
@@ -73,7 +71,7 @@ def bc():
         frame = get_weather_frame(**bcargs_weather)
         if frame:
             send_aprsframe(frame)
-        sleep(300)  # 此处为查询和发送间隔，默认为300秒，即5分钟
+        sleep(RefreshInterval)  # 按照设定的间隔发送
 
 def process_ambiguity(pos, ambiguity):
     num = bytearray(pos, 'utf-8')
@@ -102,9 +100,12 @@ def mkframe(callsign, payload):
     frame = APRSFrame()
     frame.source = callsign
     frame.dest = 'APRS'
-    frame.path = ['TCPIP*', 'qAC']  # 移除了 T2PANAMA
+    frame.path = ['TCPIP*', 'qAC']
     frame.payload = payload
     return frame.export()
+
+def celsius_to_fahrenheit(celsius):
+    return (celsius * 9/5) + 32
 
 def get_weather_frame(callsign, weather):
     try:
@@ -116,7 +117,7 @@ def get_weather_frame(callsign, weather):
             else:
                 wea_str = response.read().decode('utf-8')
             
-            logging.info(f"Received weather data from API: {wea_str}")
+            print(f"Received weather data from API: {wea_str}")
             
             w = json.loads(wea_str)['now']
             utc_now = datetime.now(timezone.utc)
@@ -129,7 +130,8 @@ def get_weather_frame(callsign, weather):
             wind_speed = float(w.get('windSpeed', 0))  # 风速单位已经是米/秒
             wenc += f"{int(wind):03d}/{int(wind_speed):03d}g000"
             temp_c = int(w.get('temp', 0))  # 温度单位已经是摄氏度
-            wenc += f"t{temp_c:03d}"
+            temp_f = celsius_to_fahrenheit(temp_c)  # 转换为华氏度
+            wenc += f"t{int(temp_f):03d}"
             precip_mm = float(w.get('precip', 0))
             wenc += f"r{int(precip_mm):03d}"
             wenc += f"p000"  # 24小时雨量，假设为0
@@ -140,10 +142,10 @@ def get_weather_frame(callsign, weather):
             wenc += " Weather data from QWeather API"
             payload = wenc
             raw_frame = mkframe(callsign, payload)
-            logging.info(f"Generated APRS frame: {raw_frame.decode()}")
+            print(f"Generated APRS frame: {raw_frame.decode()}")
             return raw_frame
     except Exception as e:
-        logging.error(f"Weather decode error: {e}")
+        print(f"Weather decode error: {e}")
         return None
 
 if __name__ == "__main__":
