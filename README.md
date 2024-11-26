@@ -4,4 +4,5 @@
 感谢BA7IB!
 
 和风天气常用地区列表：
+[https://www.qweather.com/weather/lianhu-101110110.html](https://www.qweather.com/weather/beijing-101010100.html)
 https://github.com/qwd/LocationList
